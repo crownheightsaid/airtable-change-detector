@@ -1,18 +1,41 @@
 const _ = require("lodash");
-const {
-  airbase,
-  UPDATE_BATCH_SIZE,
-  SENSITIVE_FIELDS
-} = require("../../airtable");
-
-// Maps airtable column names
-const metaField = "Meta";
-const lastModifiedField = "Last Modified";
-const lastProcessedField = "Last Processed";
 
 // N second overlap for lastModified
 // We are worried that there's clock skew on Airtable's part so we end up overlapping our requests by 5s to try to work around this possibility
 const overlapMs = 5 * 1000;
+// Airtable only allows 10 records at a time to be updated
+const UPDATE_BATCH_SIZE = 10;
+
+const wait = interval => new Promise(r => setTimeout(r, interval));
+/**
+ * Reusable scheduler for repeating in-process tasks
+ * `interval` is between one invocation's end and the next one's start, unlike `setInterval`
+ */
+function schedule(taskName, interval, f) {
+  let running = true;
+  (async () => {
+    console.log(`Starting ${taskName} and polling every ${interval}ms`);
+    /* eslint-disable no-await-in-loop */
+    while (running) {
+      try {
+        // Wait for last to finish
+        await Promise.all(f(), wait(interval));
+      } catch (e) {
+        console.error(
+          `Error in ${taskName} poll. Continuing in ${interval}. %O`,
+          e
+        );
+        await wait(interval);
+      }
+    }
+    /* eslint-disable no-await-in-loop */
+    console.log(`Stopped ${taskName}`);
+  })();
+  return () => {
+    console.log(`Stopping ${taskName}`);
+    running = false;
+  };
+}
 
 /**
  * Implementation of a simple change detector for Airtable Tables
@@ -36,11 +59,17 @@ const overlapMs = 5 * 1000;
  *   //wait some time and poll again
  */
 class ChangeDetector {
-  constructor(tableName, writeDelayMs) {
-    this.tableName = tableName;
-    this.base = airbase(tableName);
+  constructor(table, config) {
+    this.tableName = table.name;
+    this.table = table;
     this.lastModified = new Date(0); // Unix epoch 0
-    this.writeDelayMs = writeDelayMs || 0; // Unix epoch 0
+    const options = config || {};
+    this.metaFieldName = options.metaFieldName || "Meta";
+    this.lastModifiedFieldName =
+      options.lastModifiedFieldName || "Last Modified";
+    this.lastProcessedFieldName = options.lastProcessedFieldName || "";
+    this.writeDelayMs = options.writeDelayMs || 0;
+    this.sensitiveFields = options.sensitiveFields || [];
   }
 
   /**
@@ -56,9 +85,12 @@ class ChangeDetector {
    *   record.getMeta() // returns the parsed meta for the record: {"lastValues":{...}}
    *   record.didChange("field name ") // returns true if the field changed (or is new) between the last observation and now
    */
-  async poll() {
+  async pollOnce() {
     const toExamine = await this.getModifiedRecords();
-    const recordsWithFieldChanges = toExamine.filter(this.hasFieldChanges);
+    const recordsWithFieldChanges = toExamine.filter(
+      this.hasFieldChanges,
+      this
+    );
     const results = recordsWithFieldChanges.map(r => _.cloneDeep(r));
     this.updateLastModified(toExamine);
     if (results.length === 0) {
@@ -66,6 +98,13 @@ class ChangeDetector {
     }
     await this.updateRecords(recordsWithFieldChanges);
     return results;
+  }
+
+  pollWithInterval(taskName, interval, f) {
+    return schedule(taskName, interval, async () => {
+      const recordsChanged = await this.pollOnce();
+      f(recordsChanged);
+    });
   }
 
   /**
@@ -81,12 +120,15 @@ class ChangeDetector {
     const cutoff = new Date(
       Math.max(this.lastModified.getTime() - overlapMs, 0)
     );
-    const records = await this.base
+    const modifiedSinceCutoff = `({${
+      this.lastModifiedFieldName
+    }} > '${cutoff.toISOString()}')`;
+    const records = await this.table
       .select({
-        filterByFormula: `({${lastModifiedField}} > '${cutoff.toISOString()}')`
+        filterByFormula: modifiedSinceCutoff
       })
       .all();
-    return records.map(this.enrichRecord);
+    return records.map(this.enrichRecord, this);
   }
 
   /**
@@ -97,33 +139,35 @@ class ChangeDetector {
       return [];
     }
     const updates = [];
-    for (const record of records) {
+    records.forEach(record => {
       const fields = _.clone(record.fields);
-      const meta = getNormalizedMeta(record);
-      delete fields[metaField];
-      for (const sensitiveField of SENSITIVE_FIELDS) {
+      const meta = this.getNormalizedMeta(record);
+      delete fields[this.metaFieldName];
+      this.sensitiveFields.forEach(sensitiveField => {
         delete fields[sensitiveField];
-      }
+      });
       meta.lastValues = fields;
+      const newFields = {
+        [this.metaFieldName]: JSON.stringify(meta)
+      };
+      if (this.lastProcessedFieldName) {
+        newFields[this.lastProcessedFieldName] = new Date().toISOString();
+      }
       updates.push({
         id: record.id,
-        fields: {
-          [metaField]: JSON.stringify(meta),
-          [lastProcessedField]: new Date().toISOString()
-        }
+        fields: newFields
       });
-    }
-    let results = [];
+    }, this);
     // unfortunately Airtable only allows 10 records at a time to be updated so batck up the changes
-    for (const batch of _.chunk(updates, UPDATE_BATCH_SIZE)) {
-      /* eslint-disable no-await-in-loop */
-      await new Promise(r => setTimeout(r, this.writeDelayMs));
-      results += await this.base.update(batch);
-    }
-    return results;
+    let chain = Promise.resolve();
+    _.chunk(updates, UPDATE_BATCH_SIZE).forEach(batch => {
+      chain = chain
+        .then(this.table.update(batch))
+        .then(wait(this.writeDelayMs));
+    }, this);
+    return chain;
   }
 
-  /* eslint-disable class-methods-use-this  */
   // it's nice to have it in this scope for organizational purposes
   /**
    * Determines if any of are records fields have changed.
@@ -135,15 +179,17 @@ class ChangeDetector {
     const { lastValues } = meta;
 
     const ignoredFields = [
-      lastModifiedField,
-      metaField,
-      lastProcessedField,
-      ...SENSITIVE_FIELDS
+      this.lastModifiedFieldName,
+      this.metaFieldName,
+      ...this.sensitiveFields
     ];
-    for (const ignoredField of ignoredFields) {
+    if (this.lastProcessedFieldName) {
+      ignoredFields.push(this.lastProcessedFieldName);
+    }
+    ignoredFields.forEach(ignoredField => {
       delete fields[ignoredField];
       delete lastValues[ignoredField];
-    }
+    });
     if (!_.isEqual(fields, meta.lastValues)) {
       return true;
     }
@@ -158,7 +204,7 @@ class ChangeDetector {
    *   record.didChange(field) // returns true if the field changed (or is new) between the last observation and now
    */
   enrichRecord(record) {
-    const meta = getNormalizedMeta(record);
+    const meta = this.getNormalizedMeta(record);
     const { lastValues } = meta;
     const enriched = _.cloneDeep(record);
     const lastSetValues = _.keys(lastValues);
@@ -180,23 +226,23 @@ class ChangeDetector {
     }
     const maxLastModified = _.max(
       records.map(r => {
-        const rModified = r.get(lastModifiedField);
+        const rModified = r.get(this.lastModifiedFieldName);
         return rModified ? new Date(rModified).getTime() : 0;
-      })
+      }, this)
     );
     this.lastModified = new Date(maxLastModified || 0);
   }
-}
 
-function getNormalizedMeta(record) {
-  if (!record.fields[metaField]) {
-    return { lastValues: {} };
+  getNormalizedMeta(record) {
+    if (!record.fields[this.metaFieldName]) {
+      return { lastValues: {} };
+    }
+    const meta = JSON.parse(record.fields[this.metaFieldName]);
+    if (!meta.lastValues) {
+      meta.lastValues = {};
+    }
+    return meta;
   }
-  const meta = JSON.parse(record.fields[metaField]);
-  if (!meta.lastValues) {
-    meta.lastValues = {};
-  }
-  return meta;
 }
 
 module.exports = ChangeDetector;
