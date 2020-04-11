@@ -28,7 +28,6 @@
     "prettier": "^1.18.2",
     "sinon": "9.0.2"
   },
-  "private": true,
   "version": "0.1.0",
   "repository": {
     "type": "git",
