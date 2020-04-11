@@ -19,7 +19,7 @@ function schedule(taskName, interval, f) {
     while (running) {
       try {
         // Wait for last to finish
-        await Promise.all(f(), wait(interval));
+        await Promise.all([f(), wait(interval)]);
       } catch (e) {
         console.error(
           `Error in ${taskName} poll. Continuing in ${interval}. %O`,
@@ -103,7 +103,7 @@ class ChangeDetector {
   pollWithInterval(taskName, interval, f) {
     return schedule(taskName, interval, async () => {
       const recordsChanged = await this.pollOnce();
-      f(recordsChanged);
+      return f(recordsChanged);
     });
   }
 
