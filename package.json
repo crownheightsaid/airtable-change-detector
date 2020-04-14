@@ -1,0 +1,50 @@
+{
+  "name": "airtable-change-detector",
+  "scripts": {
+    "lint": "eslint src",
+    "fix": "eslint --fix src",
+    "test": "mocha 'src/**/*.test.js'"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "airtable": "0.8.1",
+    "lodash": "4.17.15"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.8.4",
+    "@babel/core": "^7.9.0",
+    "@babel/preset-env": "^7.9.0",
+    "babel-eslint": "10.1.0",
+    "chai": "4.2.0",
+    "eslint": "6.8.0",
+    "eslint-config-airbnb-base": "14.1.0",
+    "eslint-config-prettier": "^6.5.0",
+    "eslint-import-resolver-custom-alias": "^1.2.0",
+    "eslint-plugin-import": "2.20.2",
+    "eslint-plugin-no-unsanitized": "^3.0.2",
+    "eslint-plugin-prettier": "^3.1.1",
+    "eslint-plugin-promise": "^4.0.1",
+    "mocha": "7.1.1",
+    "prettier": "^1.18.2",
+    "sinon": "9.0.2"
+  },
+  "version": "0.1.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crownheightsaid/airtable-change-detector.git"
+  },
+  "keywords": [
+    "airtable",
+    "webhook",
+    "polling",
+    "poll",
+    "mutualaid"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/crownheightsaid/airtable-change-detector/issues"
+  },
+  "homepage": "https://github.com/crownheightsaid/airtable-change-detector#readme",
+  "description": ""
+}
