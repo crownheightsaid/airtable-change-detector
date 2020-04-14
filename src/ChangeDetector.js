@@ -88,7 +88,7 @@ class ChangeDetector {
   async pollOnce() {
     const toExamine = await this.getModifiedRecords();
     const recordsWithFieldChanges = toExamine.filter(
-      this.hasFieldChanges,
+      r => this.hasFieldChanges(r),
       this
     );
     const results = recordsWithFieldChanges.map(r => _.cloneDeep(r));
@@ -128,7 +128,7 @@ class ChangeDetector {
         filterByFormula: modifiedSinceCutoff
       })
       .all();
-    return records.map(this.enrichRecord, this);
+    return records.map(r => this.enrichRecord(r), this);
   }
 
   /**
