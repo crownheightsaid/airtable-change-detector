@@ -71,7 +71,7 @@ myTableDetector.pollWithInterval(
       
       if (record.didChange(colorFieldName)) {
         // Ex: send new color value to webhook
-        promises.push(sendColorWebhookAsync(record.get(colorFieldName)));
+        promises.push(axios.post(myWebhookUrl, { newColor: record.get(colorFieldName) }));
       }
       if (
         record.didChange(statusFieldName) &&
