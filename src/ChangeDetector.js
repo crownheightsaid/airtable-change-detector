@@ -73,17 +73,11 @@ class ChangeDetector {
   }
 
   /**
-   * Returns all the records that have been changed or added since last `poll()`.
+   * Returns all the records that have been changed or added since last `pollOnce()`.
    *
    * The Airtable record objects are just a map from field to value:
    *   record.get("field name") // returns current value for "field name"
    * (https://github.com/Airtable/airtable.js/blob/master/lib/record.js)
-   *
-   * The records are enriched with a few helper functions:
-   *   record.getTableName() //returns the table name of the record
-   *   record.getPrior("field name")  //returns the prior value for `field` or undefined
-   *   record.getMeta() // returns the parsed meta for the record: {"lastValues":{...}}
-   *   record.didChange("field name ") // returns true if the field changed (or is new) between the last observation and now
    */
   async pollOnce() {
     const toExamine = await this.getModifiedRecords();
@@ -100,6 +94,11 @@ class ChangeDetector {
     return results;
   }
 
+  /**
+   * Calls `pollOnce` on a schedule.
+   * 
+   * Will wait for both interval and work to complete.
+   */
   pollWithInterval(taskName, interval, f) {
     return schedule(taskName, interval, async () => {
       const recordsChanged = await this.pollOnce();
