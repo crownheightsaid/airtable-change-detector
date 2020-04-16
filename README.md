@@ -47,14 +47,15 @@ const base = new Airtable({ apiKey: process.env.AIR_KEY }).base(
   process.env.AIR_BASE_ID
 );
 
-const requestChanges = new ChangeDetector(base("MyTableName"), {
+// You can create multiple ChangeDetectors for each table you want to watch.
+const myTableDetector = new ChangeDetector(base("MyTableName"), {
   writeDelayMs: 100, // Delay between Airtable writes.
   metaFieldName: "MyMetaField", // Defaults to `Meta`
   lastModifiedFieldName: "My Last Modified", // Defaults to `Last Modified`
   lastProcessedFieldName: "Last Processed", // If not included, detector will not write this field
   sensitiveFields: ["Address", "Birthdate"] // Fields not to include in `Meta`s previous state. Useful for keeping data deletion easy.
 });
-requestChanges.pollWithInterval(
+myTableDetector.pollWithInterval(
   "pollingNameForLogging",
   10000, // interval in milliseconds. `pollWithInterval` will wait for both interval and work to complete
   async recordsChanged => {
