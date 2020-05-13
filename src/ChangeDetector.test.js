@@ -20,56 +20,43 @@ describe("Airtable Changes", () => {
       const table = base.table("tableName");
       const updateSpy = sinon.fake();
       sinon.replace(table, "update", updateSpy);
-      sinon
-        .stub(table, "select")
-        .returns({
-          all: () => Promise.resolve([])
-        })
-        .onSecondCall()
-        .returns({
-          all: () =>
-            Promise.resolve([
-              {
-                id: "someRecord",
-                fields: { "Last Modified": modifiedTime, Name: "test" },
-                get(field) {
-                  return this.fields[field];
-                }
-              }
-            ])
-        })
-        .onThirdCall()
-        .returns({
-          all: () =>
-            Promise.resolve([
-              {
-                id: "someRecord",
-                fields: { Name: "New Name" },
-                get(field) {
-                  return this.fields[field];
-                }
-              }
-            ])
-        });
+      // Default report no changes
+      const stub = sinon.stub(table, "select").returns({
+        all: () => Promise.resolve([])
+      });
+
       const changes = new ChangeDetector(table);
 
       let changed = await changes.pollOnce();
-      assert.equal(0, changed.length);
+      assert.isEmpty(changed);
+
+      stub.onSecondCall().returns({
+        all: () =>
+          Promise.resolve([
+            {
+              id: "someRecord",
+              fields: { "Last Modified": modifiedTime, Name: "Old Name" },
+              get(field) {
+                return this.fields[field];
+              }
+            }
+          ])
+      });
 
       changed = await changes.pollOnce();
-      assert.equal(1, changed.length);
-      const newRecord = changed[0];
-      assert.equal("test", newRecord.get("Name"));
-      assert.equal(undefined, newRecord.get("Notes"));
-      assert.isOk(newRecord.didChange("Name"));
-      assert.isOk(newRecord.didChange("Notes"));
-      assert.equal(undefined, newRecord.getPrior("Name"));
-      assert.equal(undefined, newRecord.getPrior("Notes"));
+      assert.lengthOf(changed, 1);
+      let [newRecord] = changed;
+      assert.equal(newRecord.get("Name"), "Old Name");
+      assert.isUndefined(newRecord.get("Notes"));
+      assert.isTrue(newRecord.didChange("Name"));
+      assert.isTrue(newRecord.didChange("Notes"));
+      assert.isUndefined(newRecord.getPrior("Name"));
+      assert.isUndefined(newRecord.getPrior("Notes"));
       const update = updateSpy.firstCall.args[0];
       const meta = {
         lastValues: {
           "Last Modified": modifiedTime,
-          Name: "test"
+          Name: "Old Name"
         }
       };
       expect(update).to.deep.include({
@@ -79,11 +66,31 @@ describe("Airtable Changes", () => {
         }
       });
 
-      changed = await changes.pollOnce();
-      assert.equal(1, changed.length);
+      stub.onThirdCall().returns({
+        all: () =>
+          Promise.resolve([
+            {
+              id: "someRecord",
+              fields: {
+                Meta: JSON.stringify(meta),
+                Name: "New Name"
+              },
+              get(field) {
+                return this.fields[field];
+              }
+            }
+          ])
+      });
 
       changed = await changes.pollOnce();
-      assert.equal(0, changed.length);
+      assert.equal(changed.length, 1);
+      [newRecord] = changed;
+      assert.isTrue(newRecord.didChange("Name"));
+      assert.equal(newRecord.getPrior("Name"), "Old Name");
+      assert.equal(newRecord.get("Name"), "New Name");
+
+      changed = await changes.pollOnce();
+      assert.equal(changed.length, 0);
     });
   }).timeout(10000);
 });

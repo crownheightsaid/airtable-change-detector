@@ -96,7 +96,7 @@ class ChangeDetector {
 
   /**
    * Calls `pollOnce` on a schedule.
-   * 
+   *
    * Will wait for both interval and work to complete.
    */
   pollWithInterval(taskName, interval, f) {
