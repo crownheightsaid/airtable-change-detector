@@ -211,8 +211,8 @@ class ChangeDetector {
     enriched.getPrior = field => lastValues[field];
     enriched.getMeta = () => meta;
     enriched.didChange = field =>
-      lastSetValues.length === 0 ||
-      enriched.getPrior(field) !== enriched.get(field);
+      lastSetValues.length === 0 || // Short circuit indicating first change
+      !_.isEqual(enriched.getPrior(field), enriched.get(field));
     return enriched;
   }
 
