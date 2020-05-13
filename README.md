@@ -21,20 +21,20 @@ npm install airtable-change-detector --save
 
   `Long text` field. Stores the previous row state as serialized JSON
 
-  ![Meta](github/meta.png)
+  ![Meta](.github/meta.png)
 
 - **Last Modified**
 
   `Last modified time` field. Used to query which rows have changed. You can set this to only fields you care about, but by default all fields are stored in `Meta`
 
-  ![Modified](github/modified.png)
+  ![Modified](.github/modified.png)
 
 **Optional** You can also include the optional field:
 - **Last Processed**
 
   `Date` field. Stores the last time the detector detected a change.
 
-  ![Processed](github/processed.png)
+  ![Processed](.github/processed.png)
 
 ## Usage example
 
