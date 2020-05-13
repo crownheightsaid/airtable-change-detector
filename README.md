@@ -88,6 +88,10 @@ myTableDetector.pollWithInterval(
 );
 ```
 
+## Caveats
+
+All comparison for the sake of change detecting is done with lodash's [isEqual](https://lodash.com/docs/4.17.15#isEqual)
+
 ## Info
 
 This was created by [@alexquick](https://github.com/alexquick) to poll airtable at an interval
