@@ -3,7 +3,8 @@
   "scripts": {
     "lint": "eslint src",
     "fix": "eslint --fix src",
-    "test": "mocha 'src/**/*.test.js'"
+    "test": "mocha 'src/**/*.test.js'",
+    "release": "release-it"
   },
   "main": "index.js",
   "dependencies": {
@@ -26,6 +27,7 @@
     "eslint-plugin-promise": "^4.0.1",
     "mocha": "7.1.1",
     "prettier": "^1.18.2",
+    "release-it": "13.5.8",
     "sinon": "9.0.2"
   },
   "version": "1.0.0",
