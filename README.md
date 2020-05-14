@@ -90,7 +90,11 @@ myTableDetector.pollWithInterval(
 
 ## Caveats
 
-All comparison for the sake of change detecting is done with lodash's [isEqual](https://lodash.com/docs/4.17.15#isEqual)
+- All comparison for the sake of change detecting is done with lodash's [isEqual](https://lodash.com/docs/4.17.15#isEqual)
+- Changes are only detected ONCE. If your change logic fails, you could:
+   - Retry it yourself
+   - Modify a field that is watched by `Last Modified` field. The change detector will fire again for the field you changed.
+   - Remove the watched field that you were reacting to in the `lastValues` Meta property. The prior value would be lost. (this is complicated and we may provide an API if there is interest)
 
 ## Info
 
