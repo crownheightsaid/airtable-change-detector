@@ -75,6 +75,8 @@ class ChangeDetector {
   /**
    * Returns all the records that have been changed or added since last `pollOnce()`.
    *
+   * Promise is rejected in the case of a configured field not existing in airtable.
+   *
    * The Airtable record objects are just a map from field to value:
    *   record.get("field name") // returns current value for "field name"
    * (https://github.com/Airtable/airtable.js/blob/master/lib/record.js)
@@ -86,11 +88,11 @@ class ChangeDetector {
       this
     );
     const results = recordsWithFieldChanges.map(r => _.cloneDeep(r));
-    this.updateLastModified(toExamine);
     if (results.length === 0) {
       return results;
     }
     await this.updateRecords(recordsWithFieldChanges);
+    this.updateLastModified(toExamine);
     return results;
   }
 
@@ -135,7 +137,7 @@ class ChangeDetector {
    */
   async updateRecords(records) {
     if (records.length === 0) {
-      return [];
+      return;
     }
     const updates = [];
     records.forEach(record => {
@@ -158,13 +160,12 @@ class ChangeDetector {
       });
     }, this);
     // unfortunately Airtable only allows 10 records at a time to be updated so batck up the changes
-    let chain = Promise.resolve();
-    _.chunk(updates, UPDATE_BATCH_SIZE).forEach(batch => {
-      chain = chain
-        .then(this.table.update(batch))
-        .then(wait(this.writeDelayMs));
-    }, this);
-    return chain;
+    /* eslint-disable no-restricted-syntax */
+    for (const batch of _.chunk(updates, UPDATE_BATCH_SIZE)) {
+      await this.table.update(batch);
+      await wait(this.writeDelayMs);
+    }
+    /* eslint-enable no-restricted-syntax */
   }
 
   // it's nice to have it in this scope for organizational purposes

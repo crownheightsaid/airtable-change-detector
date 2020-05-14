@@ -92,6 +92,34 @@ describe("Airtable Changes", () => {
       changed = await changes.pollOnce();
       assert.equal(changed.length, 0);
     });
+
+    it("Should throw an error if airtable bookkeeping info fails to update", async () => {
+      const base = new Airtable.Base("airtable", "baseId");
+      const table = base.table("tableName");
+      sinon
+        .stub(table, "update")
+        .returns(Promise.reject(new Error("AirtableError")));
+      sinon.stub(table, "select").returns({
+        all: () =>
+          Promise.resolve([
+            {
+              id: "someRecord",
+              fields: { Name: "Name" },
+              get(field) {
+                return this.fields[field];
+              }
+            }
+          ])
+      });
+
+      const changes = new ChangeDetector(table);
+
+      try {
+        await changes.pollOnce();
+      } catch (e) {
+        assert.equal(e.message, "AirtableError");
+      }
+    });
   }).timeout(10000);
 
   describe("#enrichRecords()", () => {
