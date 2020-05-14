@@ -15,6 +15,7 @@
     "@babel/cli": "^7.8.4",
     "@babel/core": "^7.9.0",
     "@babel/preset-env": "^7.9.0",
+    "auto-changelog": "2.0.0",
     "babel-eslint": "10.1.0",
     "chai": "4.2.0",
     "eslint": "6.8.0",
@@ -48,5 +49,10 @@
     "url": "https://github.com/crownheightsaid/airtable-change-detector/issues"
   },
   "homepage": "https://github.com/crownheightsaid/airtable-change-detector#readme",
-  "description": ""
+  "description": "",
+  "release-it": {
+    "hooks": {
+      "after:bump": "npx auto-changelog -p"
+    }
+  }
 }
