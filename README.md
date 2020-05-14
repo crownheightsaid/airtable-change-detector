@@ -5,7 +5,7 @@
 Detects changes on an Airtable table by storing previous state for each row in a field of your choosing.
 This can be used to perform logic (like webhooks) on field changes.
 
-Package is `1.0.0` because it's used in production and we have no plans on changing API. However, it is undertested.
+Package is `1._._` because it's used in production and we have no plans on changing API. However, it is undertested.
 Please add tests if you can! There is only one source file.
 
 ## Installation
@@ -63,6 +63,7 @@ myTableDetector.pollWithInterval(
     const colorFieldName = "Color";
     console.info(`Found ${recordsChanged.length} changes in MyTableName`);
     const promises = [];
+    const someSetupConfig = await mySetup(recordsChanged.length);
     recordsChanged.forEach(record => {
       // Each `record` is an Airtable record in the node API with extra fields added including:
       // record.didChange(field) returns true if the field changed (or is new) between the last observation and now
@@ -78,8 +79,7 @@ myTableDetector.pollWithInterval(
         record.getPrior(statusFieldName) === "New" &&
         record.get(statusFieldName) === "Assigned"
       ) {
-        const result = await doSomeAsyncLogic();
-        console.log(result);
+        promises.push(doSomeAsyncLogic(someSetupConfig));
       }
     });
     // If doing many Airtable writes, be careful of 5rps rate limit
@@ -113,7 +113,7 @@ npm run test // Run mocha tests
 
 ## Contributing
 
-1. Fork it (<>)
+1. Fork it
 2. Create your feature branch (`git checkout -b feature/fooBar`)
 3. Commit your changes (`git commit -am 'Add some fooBar'`)
 4. Push to the branch (`git push origin feature/fooBar`)
