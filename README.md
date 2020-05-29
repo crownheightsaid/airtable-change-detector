@@ -1,4 +1,4 @@
-# Airtable Change Detector 
+# Airtable Change Detector
 
 [![npm version](https://badge.fury.io/js/airtable-change-detector.svg)](https://badge.fury.io/js/airtable-change-detector)
 
@@ -53,7 +53,8 @@ const myTableDetector = new ChangeDetector(base("MyTableName"), {
   metaFieldName: "MyMetaField", // Defaults to `Meta`
   lastModifiedFieldName: "My Last Modified", // Defaults to `Last Modified`
   lastProcessedFieldName: "Last Processed", // If not included, detector will not write this field
-  sensitiveFields: ["Address", "Birthdate"] // Fields not to include in `Meta`s previous state. Useful for keeping data deletion easy.
+  sensitiveFields: ["Address", "Birthdate"], // Fields not to include in `Meta`s previous state. Useful for keeping data deletion easy.
+  autoUpdateEnabled: true // Defaults to true. If disabled you need to, when ready, pass an array of records to the function myTableDetector.updateRecords() to mark the record(s) as having been processed. It is recommended that you 'await' the return of the function to ensure a successful update.
 });
 myTableDetector.pollWithInterval(
   "pollingNameForLogging",
@@ -69,7 +70,7 @@ myTableDetector.pollWithInterval(
       // record.didChange(field) returns true if the field changed (or is new) between the last observation and now
       // record.getPrior(field) returns the prior value for `field` or undefined
       // See `enrichRecord` for more added methods
-      
+
       if (record.didChange(colorFieldName)) {
         // Ex: send new color value to webhook
         promises.push(axios.post(myWebhookUrl, { newColor: record.get(colorFieldName) }));
@@ -91,10 +92,11 @@ myTableDetector.pollWithInterval(
 ## Caveats
 
 - All comparison for the sake of change detecting is done with lodash's [isEqual](https://lodash.com/docs/4.17.15#isEqual)
-- Changes are only detected ONCE. If your change logic fails, you could:
+- By default, changes are only detected ONCE. If your change logic fails, you could:
    - Retry it yourself
    - Modify a field that is watched by `Last Modified` field. The change detector will fire again for the field you changed.
    - Remove the watched field that you were reacting to in the `lastValues` Meta property. The prior value would be lost. (this is complicated and we may provide an API if there is interest)
+   - Optionally disable the auto update capability and invoke the updateRecords function yourself. See the option autoUpdateEnabled above
 
 ## Info
 
@@ -106,9 +108,9 @@ for [mutual-aid-app](https://github.com/crownheightsma/mutual-aid-app).
 ```sh
 npm i // Initial install
 
-npm run lint // Find lint issues 
-npm run fix // Attempt to fix lint issues 
-npm run test // Run mocha tests 
+npm run lint // Find lint issues
+npm run fix // Attempt to fix lint issues
+npm run test // Run mocha tests
 ```
 
 ## Contributing

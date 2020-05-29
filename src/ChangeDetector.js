@@ -70,6 +70,7 @@ class ChangeDetector {
     this.lastProcessedFieldName = options.lastProcessedFieldName || "";
     this.writeDelayMs = options.writeDelayMs || 0;
     this.sensitiveFields = options.sensitiveFields || [];
+    this.autoUpdateEnabled = options.autoUpdateEnabled || true;
   }
 
   /**
@@ -91,7 +92,9 @@ class ChangeDetector {
     if (results.length === 0) {
       return results;
     }
-    await this.updateRecords(recordsWithFieldChanges);
+    if (this.autoUpdateEnabled) {
+      await this.updateRecords(recordsWithFieldChanges);
+    }
     this.updateLastModified(toExamine);
     return results;
   }
