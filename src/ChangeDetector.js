@@ -1,4 +1,5 @@
 const _ = require("lodash");
+const RecordError = require("./RecordError.js");
 
 // N second overlap for lastModified
 // We are worried that there's clock skew on Airtable's part so we end up overlapping our requests by 5s to try to work around this possibility
@@ -21,9 +22,13 @@ function schedule(taskName, interval, f) {
         // Wait for last to finish
         await Promise.all([f(), wait(interval)]);
       } catch (e) {
+        let err = e;
+        if (e instanceof RecordError) {
+          err = e.cause;
+        }
         console.error(
           `Error in ${taskName} poll. Continuing in ${interval}. %O`,
-          e
+          err
         );
         await wait(interval);
       }
@@ -103,11 +108,25 @@ class ChangeDetector {
    * Calls `pollOnce` on a schedule.
    *
    * Will wait for both interval and work to complete.
+   *
+   * errFunc(err, recordId?): Optional function
+   * for reporting errors. recordId will be null if
+   * the error is not specific to a single record.
    */
-  pollWithInterval(taskName, interval, f) {
+  pollWithInterval(taskName, interval, f, errFunc) {
     return schedule(taskName, interval, async () => {
-      const recordsChanged = await this.pollOnce();
-      return f(recordsChanged);
+      try {
+        const recordsChanged = await this.pollOnce();
+        return f(recordsChanged);
+      } catch (e) {
+        if (errFunc) {
+          if (e instanceof RecordError) {
+            return errFunc(e.cause, e.message);
+          }
+          return errFunc(e);
+        }
+        throw e;
+      }
     });
   }
 
@@ -171,7 +190,6 @@ class ChangeDetector {
     /* eslint-enable no-restricted-syntax */
   }
 
-  // it's nice to have it in this scope for organizational purposes
   /**
    * Determines if any of are records fields have changed.
    * This ignores the bookkeeking fields such as metaField and lastProcessedField
@@ -240,7 +258,12 @@ class ChangeDetector {
     if (!record.fields[this.metaFieldName]) {
       return { lastValues: {} };
     }
-    const meta = JSON.parse(record.fields[this.metaFieldName]);
+    let meta;
+    try {
+      meta = JSON.parse(record.fields[this.metaFieldName]);
+    } catch (e) {
+      throw new RecordError(record.id, e);
+    }
     if (!meta.lastValues) {
       meta.lastValues = {};
     }
@@ -248,4 +271,5 @@ class ChangeDetector {
   }
 }
 
+ChangeDetector.RecordError = RecordError;
 module.exports = ChangeDetector;
