@@ -120,6 +120,32 @@ describe("Airtable Changes", () => {
         assert.equal(e.message, "AirtableError");
       }
     });
+
+    it("Should throw an RecordError if can't parse Meta field JSON", async () => {
+      const base = new Airtable.Base("airtable", "baseId");
+      const table = base.table("tableName");
+      sinon.stub(table, "select").returns({
+        all: () =>
+          Promise.resolve([
+            {
+              id: "someRecord",
+              fields: { Meta: "Not JSON" },
+              get(field) {
+                return this.fields[field];
+              }
+            }
+          ])
+      });
+
+      const changes = new ChangeDetector(table);
+
+      try {
+        await changes.pollOnce();
+      } catch (e) {
+        assert.equal(e.name, "RecordError");
+        assert.equal(e.message, "someRecord");
+      }
+    });
   }).timeout(10000);
 
   describe("#enrichRecords()", () => {

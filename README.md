@@ -85,6 +85,17 @@ myTableDetector.pollWithInterval(
     });
     // If doing many Airtable writes, be careful of 5rps rate limit
     return Promise.all(promises);
+  },
+  // errFunc is optional. If absent, the error will be logged to console and retried after interval.
+  // In that case, the recordId will not be logged.
+  async (err, recordId) => {
+    // recordId will be passed if the error is specific to a record
+    // (ex: the Meta field for a record isn't valid JSON because its been edited manually)
+    if (recordId) {
+      console.log(`Error for record ${recordId}:`);
+    }
+    console.log(err);
+    await sendAlertingWebhook(err);
   }
 );
 ```
