@@ -103,6 +103,7 @@ myTableDetector.pollWithInterval(
 ## Caveats
 
 - All comparison for the sake of change detecting is done with lodash's [isEqual](https://lodash.com/docs/4.17.15#isEqual)
+- By default, all fields are stored in Meta. Consider the impact on your storage capacity!
 - By default, changes are only detected ONCE. If your change logic fails, you could:
    - Retry it yourself
    - Modify a field that is watched by `Last Modified` field. The change detector will fire again for the field you changed.
