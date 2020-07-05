@@ -12,7 +12,7 @@ const wait = interval => new Promise(r => setTimeout(r, interval));
  * Reusable scheduler for repeating in-process tasks
  * `interval` is between one invocation's end and the next one's start, unlike `setInterval`
  */
-function schedule(taskName, interval, f) {
+function schedule(taskName, interval, f, errFunc) {
   let running = true;
   (async () => {
     console.log(`Starting ${taskName} and polling every ${interval}ms`);
@@ -30,6 +30,9 @@ function schedule(taskName, interval, f) {
           `Error in ${taskName} poll. Continuing in ${interval}. %O`,
           err
         );
+        if (errFunc) {
+          errFunc(err);
+        }
         await wait(interval);
       }
     }
@@ -114,20 +117,25 @@ class ChangeDetector {
    * the error is not specific to a single record.
    */
   pollWithInterval(taskName, interval, f, errFunc) {
-    return schedule(taskName, interval, async () => {
-      try {
-        const recordsChanged = await this.pollOnce();
-        return f(recordsChanged);
-      } catch (e) {
-        if (errFunc) {
-          if (e instanceof RecordError) {
-            return errFunc(e.cause, e.message);
+    return schedule(
+      taskName,
+      interval,
+      async () => {
+        try {
+          const recordsChanged = await this.pollOnce();
+          return f(recordsChanged);
+        } catch (e) {
+          if (errFunc) {
+            if (e instanceof RecordError) {
+              return errFunc(e.cause, e.message);
+            }
+            return errFunc(e);
           }
-          return errFunc(e);
+          throw e;
         }
-        throw e;
-      }
-    });
+      },
+      errFunc
+    );
   }
 
   /**
